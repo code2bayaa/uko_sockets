@@ -1,0 +1,99 @@
+const express = require("express");
+// const { Server } = require("socket.io");
+const http = require("http");
+const cors = require("cors");
+const axios = require("axios");
+const bodyParser = require('body-parser');
+const app = express();
+app.use(cors({
+    origin:process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com"]
+}));
+app.use(bodyParser.json({ limit : '3000mb' }));       // to support JSON-encoded bodies
+
+app.use( bodyParser.urlencoded({
+    limit : '50mb',// to support URL-encoded bodies
+    extended : true
+}));
+
+const server = http.createServer(app);
+const { configDotenv } = require('dotenv');
+configDotenv()
+const io = require("socket.io")(server,
+{
+    cors : {
+        origin : process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com"]
+    }
+})
+
+io.on("connection", async(socket) => {
+
+
+    socket.on("user", id => {
+        console.log("joining : " + id)
+        socket.join(id)
+    })
+    socket.on("callback", (id, data) => {
+        console.log("send to callback : " + id)
+        io.to(id).emit("callback", data)
+    })
+
+    socket.on("disconnecting", () => {
+        console.log("disconnecting")
+        // socket.emit("close-page", "you")
+    })
+    socket.on("disconnect",() => {
+        console.log("disconnect...")
+        // socket.emit("close-page", "hey")
+    })
+    
+  });
+
+//   {    
+//     "Body": {        
+//        "stkCallback": {            
+//           "MerchantRequestID": "29115-34620561-1",            
+//           "CheckoutRequestID": "ws_CO_191220191020363925",            
+//           "ResultCode": 0,            
+//           "ResultDesc": "The service request is processed successfully.",            
+//           "CallbackMetadata": {                
+//              "Item": [{                        
+//                 "Name": "Amount",                        
+//                 "Value": 1.00                    
+//              },                    
+//              {                        
+//                 "Name": "MpesaReceiptNumber",                        
+//                 "Value": "NLJ7RT61SV"                    
+//              },                    
+//              {                        
+//                 "Name": "TransactionDate",                        
+//                 "Value": 20191219102115                    
+//              },                    
+//              {                        
+//                 "Name": "PhoneNumber",                        
+//                 "Value": 254708374149                    
+//              }]            
+//           }        
+//        }    
+//     }
+//  }
+
+  // Webhook endpoint to receive external events
+app.post("/mpesa/callback", (req, res) => {
+    try{
+    console.log(req)
+        console.log("Webhook received:", req.body);
+        const session = req.body.Body.stkCallback.MerchantRequestID
+      
+        // Emit data to client
+        io.to(session).emit("callback", { data: req.body.Body.stkCallback });
+      
+        res.status(200).json({ status: true });
+    }catch(error){
+        res.status(500).json({ status: false, message : error.message });
+    }
+
+});
+
+  server.listen(process.env.PORT, () => {
+    console.log("listening at " + process.env.PORT)
+  })
