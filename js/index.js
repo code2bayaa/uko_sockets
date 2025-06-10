@@ -8,10 +8,10 @@ const app = express();
 app.use(cors({
     origin:process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com","https://uko-sockets.onrender.com","https://uko.netlify.app","http://localhost:3000"]
 }));
-app.use(bodyParser.json({ limit : '3000mb' }));       // to support JSON-encoded bodies
+app.use(bodyParser.json({ limit : '30000mb' }));       // to support JSON-encoded bodies
 
 app.use( bodyParser.urlencoded({
-    limit : '50mb',// to support URL-encoded bodies
+    limit : '1000mb',// to support URL-encoded bodies
     extended : true
 }));
 
@@ -105,7 +105,7 @@ io.on("connection", async(socket) => {
 //  }
 
   // Webhook endpoint to receive external events
-app.get("/mpesa/callback", (req, res) => {
+app.post("/mpesa/callback", (req, res) => {
     try{
     // console.log(req)
         console.log("Webhook received:", req.body);
@@ -121,6 +121,10 @@ app.get("/mpesa/callback", (req, res) => {
     }
 
 });
+
+app.post("/node-test",(req,res) => {
+    return res.status(200).json({data:req.body})
+})
 
 app.get("/test",(req,res) => {
     console.log("Hello $50")
