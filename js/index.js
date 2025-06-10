@@ -63,7 +63,7 @@ io.on("connection", async(socket) => {
 
     socket.on("destroy",(room) => {
 
-        const index = joinedRoom.findIndex(room => room === id)
+        const index = joinedRoom.findIndex(id => room === id)
         if(index > -1){
             console.log(`leaving room: ${room}`);
             joinedRoom.splice(index,1)
