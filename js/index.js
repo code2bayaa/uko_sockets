@@ -6,7 +6,7 @@ const axios = require("axios");
 const bodyParser = require('body-parser');
 const app = express();
 app.use(cors({
-    origin:process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com"]
+    origin:process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com","https://uko-sockets.onrender.com"]
 }));
 app.use(bodyParser.json({ limit : '3000mb' }));       // to support JSON-encoded bodies
 
@@ -21,7 +21,7 @@ configDotenv()
 const io = require("socket.io")(server,
 {
     cors : {
-        origin : process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com"]
+        origin : process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com","https://uko.netlify.app","https://uko-sockets.onrender.com"]
     }
 })
 
