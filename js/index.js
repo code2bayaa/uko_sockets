@@ -105,10 +105,10 @@ io.on("connection", async(socket) => {
 //  }
 
   // Webhook endpoint to receive external events
-app.post("/mpesa/callback", (req, res) => {
+app.get("/mpesa/callback", (req, res) => {
     try{
     // console.log(req)
-    //     console.log("Webhook received:", req.body);
+        console.log("Webhook received:", req.body);
     //     const session = req.body.Body.stkCallback.MerchantRequestID
       
         // Emit data to client
