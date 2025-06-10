@@ -27,10 +27,11 @@ const io = require("socket.io")(server,
 
 io.on("connection", async(socket) => {
 
-
+    let joinedRoom = []
     socket.on("user", id => {
         console.log("joining : " + id)
         socket.join(id)
+        joinedRoom.push(id)
     })
     // socket.on("callback", (id, data) => {
     //     console.log("send to callback : " + id)
@@ -39,11 +40,37 @@ io.on("connection", async(socket) => {
 
     socket.on("disconnecting", () => {
         console.log("disconnecting")
+        if (joinedRoom.length > 0) {
+            joinedRoom.forEach(room => {
+                console.log(`leaving room: ${room}`);
+                socket.leave(room);
+            })
+
+        }
         // socket.emit("close-page", "you")
     })
     socket.on("disconnect",() => {
         console.log("disconnect...")
+        if (joinedRoom.length > 0) {
+            joinedRoom.forEach(room => {
+                console.log(`leaving room: ${room}`);
+                socket.leave(room);
+            })
+
+        }      
         // socket.emit("close-page", "hey")
+    })
+
+    socket.on("destroy",(room) => {
+
+        const index = joinedRoom.findIndex(room => room === id)
+        if(index > -1){
+            console.log(`leaving room: ${room}`);
+            joinedRoom.splice(index,1)
+            socket.leave(room);
+        }
+        console.log(`already left room: ${room}`);
+
     })
     
   });
