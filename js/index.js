@@ -115,13 +115,17 @@ app.post("/mpesa/callback", (req, res) => {
         // io.to(session).emit("callback", { data: req.body.Body.stkCallback });
         io.to(req.body.name).emit("callback", { data: req.body});
       
-        res.status(200).json({ status: true });
+        return res.status(200).json({ status: true });
     }catch(error){
-        res.status(500).json({ status: false, message : error.message });
+        return res.status(500).json({ status: false, message : error.message });
     }
 
 });
 
+app.get("/test",(req,res) => {
+    console.log("Hello $50")
+    return res.status(200).json({"Hello":"Emporer"})
+})
   server.listen(process.env.PORT, () => {
     console.log("listening at " + process.env.PORT)
   })
