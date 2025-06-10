@@ -6,7 +6,7 @@ const axios = require("axios");
 const bodyParser = require('body-parser');
 const app = express();
 app.use(cors({
-    origin:process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com","https://uko-sockets.onrender.com"]
+    origin:process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com","https://uko-sockets.onrender.com","https://uko.netlify.app","http://localhost:3000"]
 }));
 app.use(bodyParser.json({ limit : '3000mb' }));       // to support JSON-encoded bodies
 
@@ -21,7 +21,7 @@ configDotenv()
 const io = require("socket.io")(server,
 {
     cors : {
-        origin : process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com","https://uko.netlify.app","https://uko-sockets.onrender.com"]
+        origin : process.env.environment === "development" ? ["http://localhost:8081","http://localhost:3000"] : ["https://late-developers.com","https://sockets.late-developers.com","https://database.late-developers.com","https://uko-app.com","https://uko.netlify.app","http://localhost:3000","https://uko-sockets.onrender.com"]
     }
 })
 
@@ -32,10 +32,10 @@ io.on("connection", async(socket) => {
         console.log("joining : " + id)
         socket.join(id)
     })
-    socket.on("callback", (id, data) => {
-        console.log("send to callback : " + id)
-        io.to(id).emit("callback", data)
-    })
+    // socket.on("callback", (id, data) => {
+    //     console.log("send to callback : " + id)
+    //     io.to(id).emit("callback", data)
+    // })
 
     socket.on("disconnecting", () => {
         console.log("disconnecting")
@@ -80,12 +80,13 @@ io.on("connection", async(socket) => {
   // Webhook endpoint to receive external events
 app.post("/mpesa/callback", (req, res) => {
     try{
-    console.log(req)
-        console.log("Webhook received:", req.body);
-        const session = req.body.Body.stkCallback.MerchantRequestID
+    // console.log(req)
+    //     console.log("Webhook received:", req.body);
+    //     const session = req.body.Body.stkCallback.MerchantRequestID
       
         // Emit data to client
-        io.to(session).emit("callback", { data: req.body.Body.stkCallback });
+        // io.to(session).emit("callback", { data: req.body.Body.stkCallback });
+        io.to(req.body.name).emit("callback", { data: req.body});
       
         res.status(200).json({ status: true });
     }catch(error){
