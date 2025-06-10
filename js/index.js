@@ -109,11 +109,11 @@ app.post("/mpesa/callback", (req, res) => {
     try{
     // console.log(req)
         console.log("Webhook received:", req.body);
-    //     const session = req.body.Body.stkCallback.MerchantRequestID
+        const session = req.body.Body.stkCallback.MerchantRequestID
       
         // Emit data to client
-        // io.to(session).emit("callback", { data: req.body.Body.stkCallback });
-        io.to(req.body.name).emit("callback", { data: req.body});
+        io.to(session).emit("callback", { data: req.body.Body.stkCallback });
+        // io.to(req.body.Body.stkCallback.).emit("callback", { data: req.body});
       
         return res.status(200).json({ status: true });
     }catch(error){
