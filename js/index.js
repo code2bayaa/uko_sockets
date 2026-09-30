@@ -178,76 +178,62 @@ io.on("connection", async(socket) => {
         socket.leave(room)
         socket.data.rooms = Math.max(0, socket.data.rooms - 1)
     })
+    socket.on("remote-join", (token) => {
+        const { room, exp, sig } = token || {}
+        if (!remoteTokenValid(room, exp, sig)) {
+            return socket.emit("remote-denied", { room: typeof room === "string" ? room : "", reason: "invalid or expired token" })
+        }
+        if (socket.rooms.has(room)) return socket.emit("remote-joined", { room })
+        if (!canJoin(socket)) return socket.emit("remote-denied", { room, reason: "too many rooms" })
+        socket.join(room)
+        socket.emit("remote-joined", { room })
+    })
     socket.on("remote", id => {
-        console.log("joining remote : " + id)
-        // socket.join(id)
+        if (!remoteLegacyOn() || !legacyRoomOk(id) || socket.rooms.has(id) || !canJoin(socket)) return
         socket.join(id)
-        // remoteRoom.push(id)
     })
     socket.on("mobile-login", id => {
-        console.log("for mobile login : " + id)
+        if (!legacyRoomOk(id) || socket.rooms.has(id) || !canJoin(socket)) return
         socket.join(id)
     })
     socket.on("tv-login", (id, user) => {
-        console.log("for tv login : " + id)
+        if (!legacyRoomOk(id)) return
         io.to(id).emit("user-login",user);
-        socket.join(id)
-        //login in tv
-        
+        if (!socket.rooms.has(id) && canJoin(socket)) socket.join(id)
     })
     socket.on("remove-mobile-login", id => {
-        console.log("for mobile login leave: " + id)
+        if (!legacyRoomOk(id)) return
         io.to(id).emit("feedback-user-login",id);
-        socket.leave(id)
+        if (socket.rooms.has(id)) {
+            socket.leave(id)
+            socket.data.rooms = Math.max(0, socket.data.rooms - 1)
+        }
     })
     socket.on("Route", (id, route, url,state) => {
-        console.log("routing to : " + id)
-        // Check room membership (Socket.IO v4)
-        // const room = io.sockets.adapter.rooms.get(id);
-        // console.log("Room members for", id, ":", room ? Array.from(room) : "no such room");
-
-        // io.to(id).emit(route, {url,state})
-        console.log(route,url,state);
+        if (!mayControl(socket, id)) return
         io.to(id).emit("Route", url,state)
     })
 
-    socket.on("PLAY", (id, value) => {
-        console.log("playing : " + id)
-        io.to(id).emit("PLAY", value)
-    })
+    for (const event of ["PLAY", "SLIDE", "SUBTITLE", "MUTE"]) {
+        socket.on(event, (id, value) => {
+            if (!mayControl(socket, id)) return
+            io.to(id).emit(event, value)
+        })
+    }
 
-    socket.on("SLIDE", (id, value) => {
-        console.log("sliding : " + id)
-        io.to(id).emit("SLIDE", value)
-    })
-
-    socket.on("SUBTITLE", (id, value) => {
-        console.log("subtitle : " + id)
-        io.to(id).emit("SUBTITLE", value)
-    })
-
-    socket.on("MUTE", (id, value) => {
-        console.log("muting : " + id)
-        io.to(id).emit("MUTE", value)
+    socket.on("KEY", (id, key) => {
+        if (!REMOTE_ROOM.test(id || "") || !socket.rooms.has(id) || !REMOTE_KEYS.has(key)) return
+        socket.to(id).emit("KEY", key)   // to the TV, not back to the phone that pressed it
     })
 
     socket.on("Bar", (id, route, url,state) => {
-        console.log("bar routing to : " + id)
-        // Check room membership (Socket.IO v4)
-        // const room = io.sockets.adapter.rooms.get(id);
-        // console.log("Room members for", id, ":", room ? Array.from(room) : "no such room");
-
-        // io.to(id).emit(route, {url,state})
+        if (!mayControl(socket, id)) return
         io.to(id).emit("Bar", {url,state})
     })
     socket.on("MovieDetail", (id, route, url,state) => {
-        // console.log("bar routing to : " + id)
-        // Check room membership (Socket.IO v4)
-        // const room = io.sockets.adapter.rooms.get(id);
-        // console.log("Room members for", id, ":", room ? Array.from(room) : "no such room");
-
+        //the client names the event: only the old navigation names, never an arbitrary one
+        if (!mayControl(socket, id) || !["MovieDetail", "Route", "Bar"].includes(route)) return
         io.to(id).emit(route, {url,state})
-        // io.to(id).emit("Bar", {url,state})
     })
     // socket.on("callback", (id, data) => {
     //     console.log("send to callback : " + id)
@@ -359,16 +345,33 @@ function keyMatches(given) {
 // "user:<id>" — one room per signed-in account, and unlike an M-PESA room the name is trivially guessable,
 // so joining one takes a token the API signed. Nothing here trusts the socket's word for who it is.
 const CHAT_ROOM = /^user:[0-9]{1,20}$/
+// movies phone <-> TV remote: "remote:<users.id>", joined only with a token the movies user service signs
+// (POST /user/remote/token/android) - same HMAC scheme as chat
+const REMOTE_ROOM = /^remote:[0-9]{1,20}$/
 
-/** A join token is good when it names a real chat room, has not expired, and its HMAC matches. */
-function chatTokenValid(room, exp, sig) {
+/** A join token is good when it names a room of the right kind, has not expired, and its HMAC matches. */
+function signedRoomValid(pattern, room, exp, sig) {
     const secret = process.env.SOCKETS_API_KEY
     if (!secret) return false                       // unsigned == unauthenticated; refuse rather than trust
-    if (typeof room !== "string" || !CHAT_ROOM.test(room)) return false
+    if (typeof room !== "string" || !pattern.test(room)) return false
     const expiry = Number(exp)
     if (!Number.isFinite(expiry) || expiry * 1000 <= Date.now()) return false
     return sameText(sig, crypto.createHmac("sha256", secret).update(`${room}.${expiry}`).digest("hex"))
 }
+const chatTokenValid = (room, exp, sig) => signedRoomValid(CHAT_ROOM, room, exp, sig)
+const remoteTokenValid = (room, exp, sig) => signedRoomValid(REMOTE_ROOM, room, exp, sig)
+
+// The old remote joined a room named after the user's EMAIL with no proof at all, so anyone who knew an email
+// could watch and drive that user's TV - and "remote" / "mobile-login" / "tv-login" joined ANY name, including
+// "user:<id>" chat rooms (skipping join-chat's token). Old app builds still use it, so it stays for the rollout
+// (REMOTE_LEGACY=off turns it off once the new phone + TV apps are out), but never for a signed or M-PESA room.
+const remoteLegacyOn = () => String(process.env.REMOTE_LEGACY || "on").toLowerCase() !== "off"
+const legacyRoomOk = (id) => typeof id === "string" && id.length > 0 && id.length <= 320
+    && !CHAT_ROOM.test(id) && !REMOTE_ROOM.test(id) && !id.includes("$")
+// where the remote may send: a signed room only from a socket inside it; a legacy room while legacy is on
+const mayControl = (socket, id) => REMOTE_ROOM.test(id || "") ? socket.rooms.has(id) : (remoteLegacyOn() && legacyRoomOk(id))
+// the phone's D-pad / touchpad (movies PRD #12) - signed rooms only
+const REMOTE_KEYS = new Set(["up", "down", "left", "right", "select", "back", "home", "playpause"])
 
 /** { key, verified } for a correctly signed webhook URL, or { status } to refuse it. */
 function checkHook(req) {
