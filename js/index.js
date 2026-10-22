@@ -141,18 +141,41 @@ io.on("connection", async(socket) => {
     })
     // let joinedRoom = []
     // let remoteRoom = []
-    socket.on("user", id => {
-        console.log("joining : " + id)
+    socket.on("user", data => {
+        console.log("joining : " + data?.mechant)
+
+        const id = data?.merchant || ""
+        const key = data?.key
+        const sig = data?.sig
+        // const api = data?.api
+        if (typeof key !== "string" || !ROOM_KEY.test(key)){
+            console.warn("socket key error")
+            return
+        }  
+        const secret = process.env.SOCKETS_API_KEY
+        if (!secret){
+            console.warn("secret key error")
+            return
+        }
+        const backSig = crypto.createHmac("sha256", secret).update(key).digest("hex")
+        if(!sameText(sig, backSig)){
+            console.warn("signature error")
+            return
+        }
+        // if(api !== process.env.SOCKETS_API_KEY){
+        //     console.warn("Sockets Key Does Not Match")
+        //     return
+        // }
         // Chat rooms are off-limits here — "user" takes any name the caller invents, which is safe only
         // because an M-PESA room name carries 128 bits the payer generated. "user:<id>" is guessable, so it
         // is joined through join-chat with a signed token instead.
-        if (typeof id !== "string" || CHAT_ROOM.test(id)) return
+        // if (typeof id !== "string" || CHAT_ROOM.test(id)) return
         // an M-PESA callback / payout Result that arrived before the browser joined its "<id>$<key>" room is replayed
         // straight away — already delivered, so there is no room to stay in
-        const cached = mpesaResults.get(id)
+        const cached = mpesaResults.get(`${id}${key}`)
         if (cached) return socket.emit(cached.event, { data: cached.data })
         if (!canJoin(socket)) return
-        socket.join(id)
+        socket.join(`${id}${key}`)
         // joinedRoom.push(id)
     })
 
