@@ -175,6 +175,7 @@ io.on("connection", async(socket) => {
         const cached = mpesaResults.get(`${id}${key}`)
         if (cached) return socket.emit(cached.event, { data: cached.data })
         if (!canJoin(socket)) return
+        console.log(`joinging: ${id}${key}`)
         socket.join(`${id}${key}`)
         // joinedRoom.push(id)
     })
@@ -423,8 +424,9 @@ function remember(rooms, event, data, verified) {
 function deliver(rooms, event, data) {
     console.log(rooms,"rooms",data,"data")
     const room = rooms[0]
+    console.log(room,"room")
     io.to(room).emit(event, { data })
-    io.in(room).socketsLeave(room)
+    // io.in(room).socketsLeave(room)
 }
 
 function fromAllowedIp(req) {
