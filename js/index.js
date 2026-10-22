@@ -422,8 +422,9 @@ function remember(rooms, event, data, verified) {
 /** Emit into the room(s), then empty them: the payment is settled, nobody needs to stay subscribed. */
 function deliver(rooms, event, data) {
     console.log(rooms,"rooms",data,"data")
-    io.to(rooms).emit(event, { data })
-    io.in(rooms).socketsLeave(rooms)
+    const room = rooms[0]
+    io.to(room).emit(event, { data })
+    io.in(room).socketsLeave(room)
 }
 
 function fromAllowedIp(req) {
